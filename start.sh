@@ -1,2 +1,3 @@
 #!/bin/bash
-python3 bot.py
+python3.10 bot.py
+
