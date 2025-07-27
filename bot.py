@@ -78,7 +78,8 @@ async def start_test(callback: types.CallbackQuery):
 
 async def send_question(message, user_id):
     progress = user_progress[user_id]
-    test = tests[progress["test_id"]]
+    test_id = progress["test_id"]
+    test = tests[test_id]
     idx = progress["q"]
 
     if idx >= len(test):
@@ -89,26 +90,35 @@ async def send_question(message, user_id):
     q = test[idx]
     keyboard = InlineKeyboardMarkup()
     for i, option in enumerate(q["a"]):
-        keyboard.add(InlineKeyboardButton(option, callback_data=f"answer_{i}"))
+        callback_data = f"answer_{test_id}_{idx}_{i}"
+        keyboard.add(InlineKeyboardButton(option, callback_data=callback_data))
     await message.answer(f"❓ {q['q']}", reply_markup=keyboard)
 
 @dp.callback_query_handler(lambda c: c.data.startswith("answer_"))
 async def handle_answer(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    progress = user_progress.get(user_id)
-    if not progress:
-        await callback.message.answer("Пожалуйста, начни сначала /start")
+    data_parts = callback.data.split("_")
+    if len(data_parts) != 4:
+        await callback.message.answer("Произошла ошибка. Попробуй /start")
         return
 
-    answer_idx = int(callback.data.split("_")[1])
-    current_question = tests[progress["test_id"]][progress["q"]]
+    _, test_id, q_idx, answer_idx = data_parts
+    q_idx = int(q_idx)
+    answer_idx = int(answer_idx)
 
-    if answer_idx == current_question["correct"]:
-        progress["correct"] += 1
+    test = tests[test_id]
+    correct_answer = test[q_idx]["correct"]
 
-    progress["q"] += 1
+    if user_id not in user_progress or user_progress[user_id]["test_id"] != test_id:
+        user_progress[user_id] = {"test_id": test_id, "q": q_idx, "correct": 0}
+
+    if answer_idx == correct_answer:
+        user_progress[user_id]["correct"] += 1
+
+    user_progress[user_id]["q"] = q_idx + 1
     await send_question(callback.message, user_id)
 
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
+
 
