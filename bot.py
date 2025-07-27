@@ -58,6 +58,7 @@ tests = {
     ]
 }
 
+# Храним прогресс каждого пользователя
 user_progress = {}
 
 @dp.message_handler(commands=["start"])
@@ -68,11 +69,14 @@ async def start_handler(message: types.Message):
 async def start_test(callback: types.CallbackQuery):
     test_id = callback.data
     user_id = callback.from_user.id
+
+    # Инициализируем прогресс
     user_progress[user_id] = {
         "test_id": test_id,
         "q": 0,
         "correct": 0
     }
+
     await callback.message.edit_text("📋 Начинаем тест!\n")
     await send_question(callback.message, user_id)
 
@@ -83,42 +87,54 @@ async def send_question(message, user_id):
     idx = progress["q"]
 
     if idx >= len(test):
-        result = f"✅ Тест завершён!\nТы ответил правильно на {progress['correct']} из {len(test)} вопросов."
+        result = (
+            f"✅ Тест завершён!\n"
+            f"Ты ответил правильно на {progress['correct']} из {len(test)} вопросов.\n\n"
+            f"Выбери следующий тест:"
+        )
         await message.answer(result, reply_markup=main_menu)
         return
 
     q = test[idx]
     keyboard = InlineKeyboardMarkup()
     for i, option in enumerate(q["a"]):
-        callback_data = f"answer_{test_id}_{idx}_{i}"
+        callback_data = f"answer|{test_id}|{idx}|{i}"
         keyboard.add(InlineKeyboardButton(option, callback_data=callback_data))
     await message.answer(f"❓ {q['q']}", reply_markup=keyboard)
 
-@dp.callback_query_handler(lambda c: c.data.startswith("answer_"))
+@dp.callback_query_handler(lambda c: c.data.startswith("answer|"))
 async def handle_answer(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    data_parts = callback.data.split("_")
-    if len(data_parts) != 4:
+    try:
+        user_id = callback.from_user.id
+        data_parts = callback.data.split("|")
+        if len(data_parts) != 4:
+            raise ValueError("Неверный формат callback_data")
+
+        _, test_id, q_idx, answer_idx = data_parts
+        q_idx = int(q_idx)
+        answer_idx = int(answer_idx)
+
+        if test_id not in tests:
+            raise ValueError("Неизвестный тест")
+
+        test = tests[test_id]
+        correct_answer = test[q_idx]["correct"]
+
+        if user_id not in user_progress or user_progress[user_id]["test_id"] != test_id:
+            user_progress[user_id] = {"test_id": test_id, "q": q_idx, "correct": 0}
+
+        if answer_idx == correct_answer:
+            user_progress[user_id]["correct"] += 1
+
+        user_progress[user_id]["q"] = q_idx + 1
+        await send_question(callback.message, user_id)
+
+    except Exception as e:
+        logging.exception("Ошибка при обработке ответа")
         await callback.message.answer("Произошла ошибка. Попробуй /start")
-        return
-
-    _, test_id, q_idx, answer_idx = data_parts
-    q_idx = int(q_idx)
-    answer_idx = int(answer_idx)
-
-    test = tests[test_id]
-    correct_answer = test[q_idx]["correct"]
-
-    if user_id not in user_progress or user_progress[user_id]["test_id"] != test_id:
-        user_progress[user_id] = {"test_id": test_id, "q": q_idx, "correct": 0}
-
-    if answer_idx == correct_answer:
-        user_progress[user_id]["correct"] += 1
-
-    user_progress[user_id]["q"] = q_idx + 1
-    await send_question(callback.message, user_id)
 
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
+
 
 
