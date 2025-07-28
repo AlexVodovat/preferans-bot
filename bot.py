@@ -11,74 +11,82 @@ dp = Dispatcher(bot)
 logging.basicConfig(level=logging.INFO)
 
 # Главное меню
-main_menu = InlineKeyboardMarkup(row_width=1)
+main_menu = InlineKeyboardMarkup(row_width=2)
 main_menu.add(
-    InlineKeyboardButton("🟨 Тест по распасам", callback_data="test_raspas"),
-    InlineKeyboardButton("🟦 Тест по вистам", callback_data="test_vists"),
-    InlineKeyboardButton("🟥 Продвинутый тест", callback_data="test_advanced"),
-    InlineKeyboardButton("🟩 Тест по правилам", callback_data="test_rules")
+    InlineKeyboardButton("📘 Базовый", callback_data="test_basic"),
+    InlineKeyboardButton("🌀 Роспасы", callback_data="test_raspas"),
+    InlineKeyboardButton("♣ Висты", callback_data="test_vists"),
+    InlineKeyboardButton("🧠 Продвинутый", callback_data="test_advanced")
 )
 
-# Вопросы
+# Словарь тестов
 tests = {
-    "test_rules": [
-    {
-        "q": "Сколько карт в руке у каждого игрока?",
-        "a": ["8", "10", "12"],
-        "correct": 2
-    },
-    {
-        "q": "Что такое прикуп?",
-        "a": ["Дополнительные карты", "Вист", "Мизер"],
-        "correct": 0
-    }
-],
-
+    "test_basic": [
+        {
+            "q": "Что такое прикуп?",
+            "a": ["2 карты, оставшиеся после сдачи", "Перерыв в игре", "Проигрыш"],
+            "correct": 0,
+            "explanation": "Прикуп — это 2 карты, которые остаются после сдачи. Их берёт игрок, выигравший торг."
+        },
+        {
+            "q": "Кто делает первый ход?",
+            "a": ["Игрок слева от сдающего", "Игрок, сделавший заказ", "Любой игрок по желанию"],
+            "correct": 1,
+            "explanation": "Первым всегда ходит игрок, который выиграл торг и сделал заказ."
+        },
+    ],
     "test_raspas": [
         {
             "q": "Когда чаще всего играют распасы?",
-            "a": ["Когда никто не заявил игру", "Когда есть туз червей", "Когда выигрываешь пулю"],
-            "correct": 0
+            "a": ["Когда никто не взял заказ", "Когда есть туз червей", "Когда выигрываешь пулю"],
+            "correct": 0,
+            "explanation": "Распасы начинаются, если все трое пасуют — никто не берёт заказ."
         },
         {
-            "q": "Какая цель в распасах?",
+            "q": "Цель распасов?",
             "a": ["Набрать больше взяток", "Избежать взяток", "Взять туза треф"],
-            "correct": 1
+            "correct": 1,
+            "explanation": "В распасах выигрывает тот, кто набрал меньше взяток, желательно — ни одной."
         },
     ],
     "test_vists": [
         {
             "q": "Что такое вист?",
-            "a": ["Игра втемную", "Защита против играющего", "Подача карты с руки"],
-            "correct": 1
+            "a": ["Игра втемную", "Защита против заказчика", "Подача карты с руки"],
+            "correct": 1,
+            "explanation": "Вист — это защита против игрока, который сделал заказ. Ты пытаешься не дать ему выполнить его."
         },
         {
-            "q": "Сколько очков за успешный вист на шестерной в пулю?",
+            "q": "Сколько очков за успешный вист в пулю?",
             "a": ["4", "2", "6"],
-            "correct": 1
+            "correct": 1,
+            "explanation": "Успешный вист приносит 2 очка в пулю. Если ты не помешал — 2 штрафа."
         },
     ],
     "test_advanced": [
         {
-            "q": "Можно ли играть мизер при семерке червей на руке?",
-            "a": ["Да, если есть козыри", "Да, если и другие карты позволяют играть", "Только на прикупе"],
-            "correct": 1
+            "q": "Можно ли играть мизер с шестёркой червей на руке?",
+            "a": ["Да, если есть козыри", "Нет, это плохой план", "Только на прикупе"],
+            "correct": 1,
+            "explanation": "Шестёрка червей — опасная карта, особенно без козырей. Мизер почти обречён на провал."
         },
         {
-            "q": "Как отличить хороший распас от плохого?",
-            "a": ["Если есть много старших карт — плохой", "Много козырей — хорошо", "Сдача не имеет значения"],
-            "correct": 0
+            "q": "Как отличить хороший распас?",
+            "a": ["Если много старших карт — плохой", "Много козырей — хорошо", "Сдача не имеет значения"],
+            "correct": 0,
+            "explanation": "Хороший распас — это когда на руках младшие карты. Чем меньше старших — тем лучше."
         },
     ]
 }
 
-# Состояние пользователя
 user_progress = {}
 
+# Стартовая команда
 @dp.message_handler(commands=["start"])
 async def start_handler(message: types.Message):
     await message.answer("Привет! 👋\nВыбери один из тестов по преферансу:", reply_markup=main_menu)
 
+# Запуск теста
 @dp.callback_query_handler(lambda c: c.data.startswith("test_"))
 async def start_test(callback: types.CallbackQuery):
     test_id = callback.data
@@ -87,51 +95,59 @@ async def start_test(callback: types.CallbackQuery):
     await callback.message.edit_text("📋 Начинаем тест!")
     await send_question(callback.message, user_id)
 
+# Отправка вопроса
 async def send_question(message, user_id):
-    progress = user_progress.get(user_id)
-    if not progress:
-        await message.answer("Ошибка состояния. Попробуй /start")
-        return
-
+    progress = user_progress[user_id]
     test_id = progress["test_id"]
     test = tests[test_id]
-    q_index = progress["q"]
+    idx = progress["q"]
 
-    if q_index >= len(test):
+    if idx >= len(test):
         result = f"✅ Тест завершён!\nТы ответил правильно на {progress['correct']} из {len(test)} вопросов."
         await message.answer(result, reply_markup=main_menu)
         return
 
-    question = test[q_index]
+    q = test[idx]
     keyboard = InlineKeyboardMarkup()
-    for i, option in enumerate(question["a"]):
-        callback_data = f"answer|{test_id}|{q_index}|{i}"
+    for i, option in enumerate(q["a"]):
+        callback_data = f"answer_{test_id}_{idx}_{i}"
         keyboard.add(InlineKeyboardButton(option, callback_data=callback_data))
 
-    await message.answer(f"❓ {question['q']}", reply_markup=keyboard)
+    await message.answer(f"❓ {q['q']}", reply_markup=keyboard)
 
-@dp.callback_query_handler(lambda c: c.data.startswith("answer|"))
+# Обработка ответа
+@dp.callback_query_handler(lambda c: c.data.startswith("answer_"))
 async def handle_answer(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    try:
-        _, test_id, q_idx, ans_idx = callback.data.split("|")
-        q_idx = int(q_idx)
-        ans_idx = int(ans_idx)
-    except Exception:
+    parts = callback.data.split("_", 3)
+    if len(parts) != 4:
         await callback.message.answer("Произошла ошибка. Попробуй /start")
         return
+
+    _, test_id, q_idx, answer_idx = parts
+    q_idx = int(q_idx)
+    answer_idx = int(answer_idx)
 
     if user_id not in user_progress or user_progress[user_id]["test_id"] != test_id:
         user_progress[user_id] = {"test_id": test_id, "q": q_idx, "correct": 0}
 
-    correct = tests[test_id][q_idx]["correct"]
-    if ans_idx == correct:
-        user_progress[user_id]["correct"] += 1
+    test = tests[test_id]
+    question = test[q_idx]
+    correct = question["correct"]
 
+    explanation = question.get("explanation", "")
+    if answer_idx == correct:
+        user_progress[user_id]["correct"] += 1
+        feedback = "✅ Верно!"
+    else:
+        feedback = f"❌ Неверно. Правильный ответ: {question['a'][correct]}"
+
+    if explanation:
+        feedback += f"\nℹ️ {explanation}"
+
+    await callback.message.answer(feedback)
     user_progress[user_id]["q"] = q_idx + 1
     await send_question(callback.message, user_id)
 
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
-
-
