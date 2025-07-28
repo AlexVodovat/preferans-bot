@@ -15,7 +15,7 @@ main_menu = InlineKeyboardMarkup(row_width=1)
 main_menu.add(
     InlineKeyboardButton("🟨 Тест по распасам", callback_data="test_raspas"),
     InlineKeyboardButton("🟦 Тест по вистам", callback_data="test_vists"),
-    InlineKeyboardButton("🟥 Продвинутый тест", callback_data="test_advanced")
+    InlineKeyboardButton("🟥 Продвинутый тест", callback_data="test_advanced"),
     InlineKeyboardButton("🟩 Тест по правилам", callback_data="test_rules")
 )
 
